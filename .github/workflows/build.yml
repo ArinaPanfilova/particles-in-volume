@@ -1,0 +1,66 @@
+# Сборка программы для Windows, macOS и Linux на серверах GitHub.
+#
+# Выпустить версию:  git tag v0.2  →  git push origin v0.2
+#   → через ~5 минут на странице Releases появится релиз v0.2 с файлами для всех ОС.
+# Просто проверить сборку без релиза: вкладка Actions → Build → Run workflow
+#   → готовые файлы лежат внизу страницы запуска, в разделе Artifacts.
+
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: ubuntu-22.04        # старый glibc → бинарник запустится и на более новых дистрибутивах
+            name: linux
+          - os: macos-14            # Apple Silicon (M1 и новее)
+            name: macos-arm64
+          - os: macos-15-intel      # Mac на Intel
+            name: macos-intel
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - run: pip install -r requirements.txt
+
+      - run: python python_app/build_exe.py
+
+      - name: Упаковать
+        run: |
+          mkdir out
+          cd python_app/dist
+          case "${{ matrix.name }}" in
+            windows) cp ParticlesInVolume.exe ../../out/ParticlesInVolume-windows.exe ;;
+            linux)   tar -czf ../../out/ParticlesInVolume-linux.tar.gz ParticlesInVolume ;;
+            macos-*) ditto -c -k --keepParent ParticlesInVolume.app ../../out/ParticlesInVolume-${{ matrix.name }}.zip ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ParticlesInVolume-${{ matrix.name }}
+          path: out/*
+
+      - name: Прикрепить к релизу
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*

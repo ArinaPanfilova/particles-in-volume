@@ -8,11 +8,23 @@
 
 ## Запуск (для пользователя)
 
-Скачайте `ParticlesInVolume.exe` со страницы **Releases** этого репозитория и запустите двойным щелчком
-(Windows 10/11). Установка Python, библиотек и интернет не нужны: exe полностью автономен,
-рядом с ним не должно лежать никаких других файлов.
+Скачайте файл для своей системы со страницы **Releases** этого репозитория. Установка Python,
+библиотек и интернет не нужны, программа полностью автономна.
 
-Ключи командной строки: `ParticlesInVolume.exe --theory`, `--authors`, `--demo <опыт>`
+| Система | Файл | Как запустить |
+|---|---|---|
+| Windows 10/11 | `ParticlesInVolume-windows.exe` | двойной щелчок |
+| macOS (M1 и новее) | `ParticlesInVolume-macos-arm64.zip` | распаковать; при первом запуске правой кнопкой по `ParticlesInVolume.app` → «Открыть» → «Открыть» |
+| macOS (Intel) | `ParticlesInVolume-macos-intel.zip` | так же |
+| Linux (Ubuntu 22.04 и новее) | `ParticlesInVolume-linux.tar.gz` | `tar -xzf ParticlesInVolume-linux.tar.gz && ./ParticlesInVolume` |
+
+macOS при первом запуске предупреждает, что разработчик не проверен (у программы нет платной
+подписи Apple). Если кнопки «Открыть» нет: Системные настройки → Конфиденциальность и безопасность →
+«Всё равно открыть», либо в Терминале `xattr -cr ParticlesInVolume.app`.
+
+Без скачивания готовых файлов программу можно запустить на любой ОС из исходников (см. «Разработка»).
+
+Ключи командной строки (Windows): `ParticlesInVolume.exe --theory`, `--authors`, `--demo <опыт>`
 (сразу открыть готовый опыт: `few`, `p112`, `corner`, `binom`, `poisson`, `bigV`, `p33`,
 `hole`, `dense`, `bigAtoms`, `diatomic`, `imp`).
 
@@ -22,20 +34,32 @@
 
 ```
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate            # Windows
+source .venv/bin/activate         # macOS / Linux
 pip install -r requirements.txt
 ```
+
+На Linux tkinter иногда ставится отдельно: `sudo apt install python3-tk`.
 
 Дальше:
 
 ```
 python python_app/app.py          # запустить программу из исходников (быстро, для правок)
-python python_app/build_exe.py    # собрать python_app/dist/ParticlesInVolume.exe (~1 мин)
+python python_app/build_exe.py    # собрать программу для своей ОС в python_app/dist/ (~1 мин)
 ```
 
-Порядок работы: правим код → проверяем через `app.py` → коммитим → перед показом собираем exe
-и выкладываем его в новый Release на GitHub (Releases → Draft a new release → прикрепить exe).
-Сам exe в git не хранится (см. `.gitignore`).
+Порядок работы: правим код → проверяем через `app.py` → коммитим и пушим.
+
+Выпуск версии для всех ОС:
+
+```
+git tag v0.2
+git push origin v0.2
+```
+
+GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml)) соберёт программу
+на Windows, macOS и Linux и через ~5 минут создаст релиз v0.2 со всеми файлами. Ход сборки виден
+на вкладке **Actions**. Собранные файлы в git не хранятся (см. `.gitignore`).
 
 ## Возможности
 
@@ -58,7 +82,8 @@ python_app/sim.py        — физическая модель (NumPy) и фор
 python_app/charts.py     — графики P(n) и n(t)
 python_app/htmlview.py   — показ теории и страницы авторов
 python_app/i18n.py       — тексты интерфейса, теории и страницы авторов на трёх языках
-python_app/build_exe.py  — сборка exe (PyInstaller)
+python_app/build_exe.py  — сборка программы для текущей ОС (PyInstaller)
+.github/workflows/build.yml — автосборка для Windows, macOS, Linux и выпуск релиза
 python_app/make_icon.py  — рисует значок icon.ico (вызывается из build_exe.py)
 requirements.txt         — зависимости для запуска и сборки
 TODO.md                  — что осталось сделать до финального показа
