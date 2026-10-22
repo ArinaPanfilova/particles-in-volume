@@ -1,0 +1,6 @@
+# Единые окончания строк в репозитории, чтобы у обоих авторов не было «пустых» диффов
+* text=auto
+*.ico binary
+*.png binary
+*.jpg binary
+*.exe binary

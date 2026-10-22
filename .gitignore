@@ -1,0 +1,23 @@
+# Виртуальное окружение
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Артефакты сборки PyInstaller (python_app/build_exe.py)
+python_app/build/
+python_app/dist/
+*.spec
+
+# Готовый exe не храним в истории git: каждая пересборка добавляла бы ~30 МБ.
+# Его выкладываем в GitHub Releases (см. README).
+*.exe
+
+# Служебные файлы ОС и редакторов
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
