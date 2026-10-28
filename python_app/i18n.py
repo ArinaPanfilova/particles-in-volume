@@ -7,6 +7,28 @@ def F(num, den):
 
 
 ru = {
+    # меню «Цвета» и легенда под сосудом
+    'colorsMenu': 'Цвета',
+    'zoomLabel': 'масштаб',
+    'zoomAll': 'вся шкала 0…N',
+    'colMolTitle': 'Молекулы',
+    'colMolRegion': 'в области / вне области',
+    'colMolSpeed': 'по скорости',
+    'colMolOrigin': 'по начальному положению',
+    'colHistTitle': 'Гистограмма',
+    'colHistOne': 'одним цветом',
+    'colHistSigma': 'по отклонению от ⟨n⟩ (σ, 2σ)',
+    'colSchemeTitle': 'Цветовая схема',
+    'colScheme_color': 'цветная',
+    'colScheme_contrast': 'контрастная (для проектора)',
+    'colScheme_bw': 'чёрно-белая (для печати и цитирования)',
+    'legIn': 'в области v',
+    'legOut': 'вне области',
+    'legImp': 'примесь',
+    'legTag': '«Самая-Самая»',
+    'legSpeed': 'медленные → быстрые',
+    'legStartIn': 'начали в области',
+    'legStartOut': 'начали снаружи',
     'tocExtra': 'Форма области и молекулы',
     'preset112': 'Две молекулы: вероятности P(0), P(1), P(2) (задача 1.12)',
     'presetBinom': 'Биномиальное распределение: область — половина сосуда',
@@ -94,16 +116,15 @@ ru = {
     'stTag': 'Доля времени выделенной молекулы в объёме',
     'colExp': 'опыт',
     'colTheory': 'теория',
-    'authorsHtml': (
-      '<h2>Авторы</h2>' +
-      '<div class="author-grid">' +
-            '<div class="author-card"><div class="avatar">А</div><div><b>Кирсберг Арина Павловна</b><br>студентка, факультет ВМК МГУ</div></div>' +
-            '<div class="author-card"><div class="avatar">А</div><div><b>Черяпина Анна Сергеевна</b><br>студентка, факультет ВМК МГУ</div></div>' +
-      '</div>' +
-      '<h3>Научный руководитель</h3><p>О. А. Чичигина, физический факультет МГУ имени М. В. Ломоносова</p>' +
-      '<h3>Литература</h3><p>О. А. Чичигина. <i>Вероятностные распределения физических величин. Сборник задач.</i> — М.: Физический факультет МГУ, 2026. Задачи 1.10–1.12, 2.13–2.16, 2.23, 3.3.</p>' +
-      '<h3>О программе</h3><p>Приложение написано на Python (графический интерфейс — tkinter, расчёты — NumPy) и собрано в один исполняемый файл .exe; оно работает полностью автономно, без установки и подключения к интернету. Молекулы моделируются как твёрдые диски, упруго сталкивающиеся друг с другом и со стенками.</p>' +
-      '<p class="muted">Москва, МГУ имени М. В. Ломоносова, 2026</p>'),
+    # страница авторов
+    'authUniv': 'Московский государственный университет имени М. В. Ломоносова',
+    'authFaculty': 'Факультет вычислительной математики и кибернетики',
+    'author1': 'Кирсберг Арина Павловна',
+    'author2': 'Черяпина Анна Сергеевна',
+    'authSupervisor': 'Руководитель: Чичигина Ольга Александровна',
+    'authLecturer': 'Лектор: Григорьев Кирилл Сергеевич',
+    'tocRefs': 'Литература',
+    'theoryRefs': '<h2 id="t12">Литература</h2><p>О. А. Чичигина. <i>Вероятностные распределения физических величин. Сборник задач.</i> — М.: Физический факультет МГУ, 2026. Задачи 1.10–1.12, 2.13–2.16, 2.23, 3.3.</p>',
     'theoryHtml': (
       '<nav class="toc"><a href="#t1">Модель</a><a href="#t2">Бернулли</a><a href="#t3">Биномиальное</a><a href="#t4">Пуассон</a><a href="#t5">Гаусс</a><a href="#t6">v ≈ V</a><a href="#t7">Марковский процесс</a><a href="#t8">Отверстие</a><a href="#t9">Размер и примесь</a><a href="#t10">Задачи</a></nav>' +
       '<h2 id="t1">1. Модель</h2>' +
@@ -160,6 +181,28 @@ ru = {
 
   
 en = {
+    # меню «Цвета» и легенда под сосудом
+    'colorsMenu': 'Colors',
+    'zoomLabel': 'scale',
+    'zoomAll': 'full range 0…N',
+    'colMolTitle': 'Molecules',
+    'colMolRegion': 'inside / outside the region',
+    'colMolSpeed': 'by speed',
+    'colMolOrigin': 'by starting position',
+    'colHistTitle': 'Histogram',
+    'colHistOne': 'single color',
+    'colHistSigma': 'by deviation from ⟨n⟩ (σ, 2σ)',
+    'colSchemeTitle': 'Color scheme',
+    'colScheme_color': 'color',
+    'colScheme_contrast': 'high contrast (projector)',
+    'colScheme_bw': 'black and white (print, citing)',
+    'legIn': 'in region v',
+    'legOut': 'outside',
+    'legImp': 'impurity',
+    'legTag': '"The Very One"',
+    'legSpeed': 'slow → fast',
+    'legStartIn': 'started inside',
+    'legStartOut': 'started outside',
     'tocExtra': 'Region shape and molecules',
     'preset112': 'Two molecules: probabilities P(0), P(1), P(2) (problem 1.12)',
     'presetBinom': 'Binomial distribution: the region is half of the vessel',
@@ -247,16 +290,15 @@ en = {
     'stTag': 'Fraction of time the tagged molecule is inside',
     'colExp': 'experiment',
     'colTheory': 'theory',
-    'authorsHtml': (
-      '<h2>Authors</h2>' +
-      '<div class="author-grid">' +
-            '<div class="author-card"><div class="avatar">A</div><div><b>Arina Pavlovna Kirsberg</b><br>student, Faculty of Computational Mathematics and Cybernetics, MSU</div></div>' +
-            '<div class="author-card"><div class="avatar">A</div><div><b>Anna Sergeevna Cheryapina</b><br>student, Faculty of Computational Mathematics and Cybernetics, MSU</div></div>' +
-      '</div>' +
-      '<h3>Scientific supervisor</h3><p>O. A. Chichigina, Faculty of Physics, Lomonosov Moscow State University</p>' +
-      '<h3>Reference</h3><p>O. A. Chichigina. <i>Probability Distributions of Physical Quantities. Problem Book.</i> Moscow: Faculty of Physics, MSU, 2026. Problems 1.10–1.12, 2.13–2.16, 2.23, 3.3.</p>' +
-      '<h3>About</h3><p>The application is written in Python (tkinter GUI, NumPy computations) and packaged as a single .exe file; it works fully offline without installation. Molecules are modelled as hard disks colliding elastically with each other and with the walls.</p>' +
-      '<p class="muted">Moscow, Lomonosov Moscow State University, 2026</p>'),
+    # страница авторов
+    'authUniv': 'Lomonosov Moscow State University',
+    'authFaculty': 'Faculty of Computational Mathematics and Cybernetics',
+    'author1': 'Arina Pavlovna Kirsberg',
+    'author2': 'Anna Sergeevna Cheryapina',
+    'authSupervisor': 'Supervisor: Olga Aleksandrovna Chichigina',
+    'authLecturer': 'Lecturer: Kirill Sergeevich Grigoriev',
+    'tocRefs': 'References',
+    'theoryRefs': '<h2 id="t12">References</h2><p>O. A. Chichigina. <i>Probability Distributions of Physical Quantities. Problem Book.</i> Moscow: Faculty of Physics, MSU, 2026. Problems 1.10–1.12, 2.13–2.16, 2.23, 3.3.</p>',
     'theoryHtml': (
       '<nav class="toc"><a href="#t1">Model</a><a href="#t2">Bernoulli</a><a href="#t3">Binomial</a><a href="#t4">Poisson</a><a href="#t5">Gauss</a><a href="#t6">v ≈ V</a><a href="#t7">Markov process</a><a href="#t8">Hole</a><a href="#t9">Size and impurity</a><a href="#t10">Problems</a></nav>' +
       '<h2 id="t1">1. Model</h2>' +
@@ -313,6 +355,28 @@ en = {
 
   
 zh = {
+    # меню «Цвета» и легенда под сосудом
+    'colorsMenu': '颜色',
+    'zoomLabel': '比例',
+    'zoomAll': '全范围 0…N',
+    'colMolTitle': '分子',
+    'colMolRegion': '区域内 / 区域外',
+    'colMolSpeed': '按速度',
+    'colMolOrigin': '按初始位置',
+    'colHistTitle': '直方图',
+    'colHistOne': '单色',
+    'colHistSigma': '按偏离 ⟨n⟩ 的程度（σ、2σ）',
+    'colSchemeTitle': '配色方案',
+    'colScheme_color': '彩色',
+    'colScheme_contrast': '高对比度（投影仪）',
+    'colScheme_bw': '黑白（用于打印和引用）',
+    'legIn': '在区域 v 内',
+    'legOut': '在区域外',
+    'legImp': '杂质',
+    'legTag': '“最特别的那个”',
+    'legSpeed': '慢 → 快',
+    'legStartIn': '起始于区域内',
+    'legStartOut': '起始于区域外',
     'tocExtra': '区域形状与分子',
     'preset112': '两个分子：概率 P(0)、P(1)、P(2)（习题 1.12）',
     'presetBinom': '二项分布：区域为容器的一半',
@@ -400,16 +464,15 @@ zh = {
     'stTag': '被标记分子处于体积内的时间比例',
     'colExp': '实验',
     'colTheory': '理论',
-    'authorsHtml': (
-      '<h2>作者</h2>' +
-      '<div class="author-grid">' +
-            '<div class="author-card"><div class="avatar">A</div><div><b>基尔斯伯格·阿琳娜·帕夫洛夫娜（Arina Kirsberg）</b><br>莫斯科国立大学计算数学与控制论系学生</div></div>' +
-            '<div class="author-card"><div class="avatar">A</div><div><b>切里亚皮娜·安娜·谢尔盖耶夫娜（Anna Cheryapina）</b><br>莫斯科国立大学计算数学与控制论系学生</div></div>' +
-      '</div>' +
-      '<h3>指导教师</h3><p>O. A. 奇奇吉娜（O. A. Chichigina），莫斯科国立罗蒙诺索夫大学物理系</p>' +
-      '<h3>参考文献</h3><p>O. A. Chichigina.《物理量的概率分布：习题集》. 莫斯科：莫斯科国立大学物理系，2026. 习题 1.10–1.12、2.13–2.16、2.23、3.3。</p>' +
-      '<h3>关于程序</h3><p>本程序使用 Python（tkinter 图形界面，NumPy 计算）编写，并打包为单个 .exe 文件，无需安装，可完全离线运行。分子被模拟为彼此之间以及与器壁发生弹性碰撞的硬圆盘。</p>' +
-      '<p class="muted">莫斯科，莫斯科国立罗蒙诺索夫大学，2026</p>'),
+    # страница авторов
+    'authUniv': '莫斯科国立罗蒙诺索夫大学',
+    'authFaculty': '计算数学与控制论系',
+    'author1': '基尔斯伯格·阿琳娜·帕夫洛夫娜',
+    'author2': '切里亚皮娜·安娜·谢尔盖耶夫娜',
+    'authSupervisor': '指导教师：奥尔加·亚历山德罗夫娜·奇奇吉娜',
+    'authLecturer': '讲师：基里尔·谢尔盖耶维奇·格里戈里耶夫',
+    'tocRefs': '参考文献',
+    'theoryRefs': '<h2 id="t12">参考文献</h2><p>O. A. Chichigina.《物理量的概率分布：习题集》. 莫斯科：莫斯科国立大学物理系，2026. 习题 1.10–1.12、2.13–2.16、2.23、3.3。</p>',
     'theoryHtml': (
       '<nav class="toc"><a href="#t1">模型</a><a href="#t2">伯努利</a><a href="#t3">二项分布</a><a href="#t4">泊松</a><a href="#t5">高斯</a><a href="#t6">v ≈ V</a><a href="#t7">马尔可夫过程</a><a href="#t8">小孔</a><a href="#t9">尺寸与杂质</a><a href="#t10">习题</a></nav>' +
       '<h2 id="t1">1. 模型</h2>' +

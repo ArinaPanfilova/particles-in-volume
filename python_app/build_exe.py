@@ -21,6 +21,7 @@ subprocess.check_call([
     '--name', 'ParticlesInVolume',
     '--icon', str(ROOT / 'icon.ico'),
     '--add-data', '%s%s.' % (ROOT / 'icon.ico', os.pathsep),
+    '--add-data', '%s%sassets' % (ROOT / 'assets', os.pathsep),  # фото авторов и эмблемы
     '--distpath', str(ROOT / 'dist'), '--workpath', str(ROOT / 'build'), '--specpath', str(ROOT / 'build'),
     str(ROOT / 'app.py'),
 ])

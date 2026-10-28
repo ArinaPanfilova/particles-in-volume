@@ -60,7 +60,7 @@ class Simulation:
             init='uniform',   # начальное состояние: uniform | outside | inside
         )
         self.sample_dt = 2.0
-        self.series_len = 1500
+        self.series_len = 12000  # история n(t) для самого мелкого масштаба графика (charts.WIN · 2^3)
         self.reset()
 
     # ---------------- геометрия ----------------
@@ -231,6 +231,7 @@ class Simulation:
         if bonds:
             self.apply_bonds()
         self.px, self.py = X.copy(), Y.copy()
+        self.start_in = self.inside_mask()  # где молекула была при старте — для раскраски
         # «температура» поддерживается постоянной: энергия, заданная при старте
         self.energy = float(np.sum(self.m * (self.vx ** 2 + self.vy ** 2))) if n else 0.0
         self.tagged = n_imp if n_main > 0 else -1

@@ -2,12 +2,15 @@
 """Графики на tk.Canvas: гистограмма P(n) и временной ряд n(t)."""
 import math
 
+from palette import C
 from sim import Dist
 
-C = dict(axis='#6b7280', grid='#e5e7eb', text='#374151', bar='#8ab8e6', barEdge='#3f7fbf',
-         binom='#d62828', pois='#2a9d8f', gauss='#f4a261', band='#f6dede', line='#1d3557')
 FONT = ('Segoe UI', 9)
 SCALE = 1.0  # масштаб интерфейса (DPI), задаётся приложением
+# масштаб графика n(t): уровень 0 — крупно (⟨n⟩ ± 3.5σ, последние WIN отсчётов),
+# каждый следующий вдвое шире по n и вдвое длиннее по времени, последний — вся шкала 0…N
+ZOOMS = 4
+WIN = 1500
 
 
 def nice_step(rng, target):
@@ -52,7 +55,8 @@ def frame(cv, L, T, R, B, xlo, xhi, ylo, yhi, xstep, ystep, xlabel, ylabel, inte
 
 
 def hist(cv, st):
-    """st: N, p, closed, n0, hist, samples, pairs, show{binom,pois,gauss}, xLabel, yLabel, empty"""
+    """st: N, p, closed, n0, hist, samples, pairs, show{binom,pois,gauss}, xLabel, yLabel, empty,
+    sigma — раскрасить столбики по отклонению от ⟨n⟩: до σ, до 2σ, дальше"""
     cv.delete('all')
     w, h = cv.winfo_width(), cv.winfo_height()
     if w < 50 or h < 50:
@@ -113,12 +117,18 @@ def hist(cv, st):
     X, Y = frame(cv, L, T, R, B, lo - 0.6, hi + 0.6, 0, ymax, xstep, nice_step(ymax, 4),
                  st['xLabel'], st['yLabel'], True)
     bw = max(1, (X(1) - X(0)) * 0.8)
+    by_sigma = st.get('sigma') and not st['closed'] and sig > 0
+    lw = C['lw']
     for n in range(lo, hi + 1):
         v = expP(n)
         if v <= 0:
             continue
         x = X(n) - bw / 2
-        cv.create_rectangle(x, Y(v), x + bw, B, fill=C['bar'], outline=C['barEdge'] if bw > 3 else '')
+        col = C['bar']
+        if by_sigma:
+            dev = abs(n - mu)
+            col = C['sig1'] if dev <= sig else C['sig2'] if dev <= 2 * sig else C['sig3']
+        cv.create_rectangle(x, Y(v), x + bw, B, fill=col, outline=C['barEdge'] if bw > 3 else '')
     if st['show']['gauss'] and not st['closed'] and s2 > 0:
         pts = []
         K = 200
@@ -126,43 +136,50 @@ def hist(cv, st):
         for i in range(K + 1):
             x = lo - 0.6 + (hi - lo + 1.2) * i / K
             pts += [X(x), Y(min(scale * Dist.gauss(x, mu, s2), ymax))]
-        cv.create_line(*pts, fill=C['gauss'], width=2, smooth=True)
+        cv.create_line(*pts, fill=C['gauss'], width=2 * lw, smooth=True, dash=C['gaussDash'])
     ns = [n for n in range(lo, hi + 1) if not pairs or n % 2 == 0]
     if st['show']['pois'] and not st['closed'] and len(ns) > 1:
         pts = []
         for n in ns:
             pts += [X(n), Y(poisP(n))]
-        cv.create_line(*pts, fill=C['pois'], width=1.5, dash=(5, 4))
+        cv.create_line(*pts, fill=C['pois'], width=1.5 * lw, dash=C['poisDash'])
         if bw > 4:
             for n in ns:
-                cv.create_rectangle(X(n) - 2.5, Y(poisP(n)) - 2.5, X(n) + 2.5, Y(poisP(n)) + 2.5,
+                q = 2.5 * lw
+                cv.create_rectangle(X(n) - q, Y(poisP(n)) - q, X(n) + q, Y(poisP(n)) + q,
                                     fill=C['pois'], outline='')
     if st['show']['binom']:
         pts = []
         for n in ns:
             pts += [X(n), Y(binP(n))]
         if len(pts) >= 4:
-            cv.create_line(*pts, fill=C['binom'], width=1.5)
+            cv.create_line(*pts, fill=C['binom'], width=1.5 * lw, dash=C['binomDash'])
         if bw > 3:
             for n in ns:
                 y = Y(binP(n))
-                cv.create_oval(X(n) - 3, y - 3, X(n) + 3, y + 3, fill=C['binom'], outline='')
+                q = 3 * lw
+                cv.create_oval(X(n) - q, y - q, X(n) + q, y + q, fill=C['binom'], outline='')
     if tot == 0 and st.get('empty'):
         cv.create_text((L + R) / 2, (T + B) / 2, text=st['empty'], fill=C['axis'], font=('Segoe UI', 10))
 
 
 def series(cv, st):
-    """st: series [(t, n)], N, p, closed, n0, pairs, xLabel, yLabel"""
+    """st: series [(t, n)], N, p, closed, n0, pairs, xLabel, yLabel, zoom (0 … ZOOMS − 1)"""
     cv.delete('all')
     w, h = cv.winfo_width(), cv.winfo_height()
     if w < 50 or h < 50:
         return
-    d, N, p = st['series'], st['N'], st['p']
+    z = st.get('zoom', 0)
+    d, N, p = st['series'][-WIN * 2 ** z:], st['N'], st['p']
     mu = st['n0'] if st['closed'] else N * p
     sig = 0 if st['closed'] else math.sqrt((2 if st.get('pairs') else 1) * N * p * (1 - p))
-    ymin, ymax = mu - 3.5 * sig - 1, mu + 3.5 * sig + 1
-    for _, n in d:
-        ymin, ymax = min(ymin, n), max(ymax, n)
+    if z == ZOOMS - 1:
+        ymin, ymax = 0, N
+    else:
+        half = (3.5 * sig + 1) * 2 ** z
+        ymin, ymax = mu - half, mu + half
+        for _, n in d:
+            ymin, ymax = min(ymin, n), max(ymax, n)
     ymin = max(0, math.floor(ymin))
     ymax = min(max(N, 1), math.ceil(ymax))
     if ymax - ymin < 2:
@@ -179,11 +196,22 @@ def series(cv, st):
         return min(B + 2, max(T - 2, Y(v)))
     if sig > 0:
         cv.create_rectangle(L, clipY(mu + sig), R, clipY(mu - sig), fill=C['band'], outline='')
-    cv.create_line(L, clipY(mu), R, clipY(mu), fill=C['binom'], dash=(6, 4), width=1.2)
-    if len(d) > 1:
+    cv.create_line(L, clipY(mu), R, clipY(mu), fill=C['binom'], dash=C['meanDash'], width=1.2 * C['lw'])
+    if len(d) > 2 * (R - L):  # точек больше, чем пикселей: в каждом столбце пикселей — от min до max
+        cols = {}
+        for t, n in d:
+            c = int(X(t))
+            lo, hi = cols.get(c, (n, n))
+            cols[c] = (min(lo, n), max(hi, n))
+        pts = []
+        for c in sorted(cols):
+            lo, hi = cols[c]
+            pts += [c, Y(hi), c, Y(lo)]
+        cv.create_line(*pts, fill=C['line'], width=1.4 * C['lw'])
+    elif len(d) > 1:
         pts = [X(d[0][0]), Y(d[0][1])]
         for i in range(1, len(d)):  # ступенчатая линия
             x = X(d[i][0])
             pts += [x, Y(d[i - 1][1]), x, Y(d[i][1])]
-        cv.create_line(*pts, fill=C['line'], width=1.4)
+        cv.create_line(*pts, fill=C['line'], width=1.4 * C['lw'])
     cv.tag_raise('all')
