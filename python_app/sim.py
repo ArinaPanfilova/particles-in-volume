@@ -2,7 +2,8 @@
 """Молекулярно-динамическая модель двумерного газа из твёрдых дисков
 в прямоугольном сосуде с выделенной областью (полоса у левой стенки или
 прямоугольник в углу), необязательной перегородкой с отверстием, примесью
-молекул другого размера и возможностью объединять атомы в двухатомные молекулы."""
+молекул другого размера, возможностью объединять атомы в двухатомные молекулы
+и притяжением молекул друг к другу (газ Ван-дер-Ваальса)."""
 import math
 import random
 
@@ -42,6 +43,8 @@ class Dist:
 class Simulation:
     SKIN = 12.0  # запас для списка соседей (список Верле)
     H = 400.0    # высота сосуда; ширина задаётся параметром W
+    LAM = 2.0    # притяжение действует до расстояния LAM·(r_i + r_j) между центрами
+    U0 = 2.0     # «стандартная» тепловая скорость: ε задаётся в единицах kT при u = U0
 
     def __init__(self, W=600):
         self.p = dict(
@@ -58,6 +61,7 @@ class Simulation:
             diatomic=False,   # атомы основной компоненты объединены попарно в молекулы
             count='main',     # кого считаем: main | imp | all
             init='uniform',   # начальное состояние: uniform | outside | inside
+            attr=0.0,         # глубина ямы притяжения ε в единицах kT₀ (kT при u = U0); 0 — нет притяжения
         )
         self.sample_dt = 2.0
         self.series_len = 12000  # история n(t) для самого мелкого масштаба графика (charts.WIN · 2^3)
@@ -248,6 +252,7 @@ class Simulation:
         self.sum2 = 0.0
         self.series = []
         self.tagged_in = 0
+        self.run_time = 0.0  # секундомер: сколько реальных секунд копится эта статистика
         self.n0 = self.count_inside()
 
     def set_speed(self, u):
@@ -258,6 +263,11 @@ class Simulation:
             self.vy *= k
             self.energy *= k * k
         self.p['u'] = u
+
+    def set_attr(self, a):
+        """Изменение притяжения без перезапуска (список соседей пересчитается с новым радиусом)."""
+        self.p['attr'] = a
+        self.pairs = None
 
     def set_width(self, W):
         """Изменение объёма сосуда V при неизменном объёме выделенной области v."""
@@ -299,7 +309,8 @@ class Simulation:
             # сортируем по x и для каждой частицы берём соседей справа в пределах lmax
             order = np.argsort(self.x)
             xs = self.x[order]
-            lmax = 2 * float(self.r.max()) + self.SKIN
+            reach = self.LAM if self.eps() > 0 else 1.0  # с притяжением соседи — до LAM·(r_i + r_j)
+            lmax = 2 * float(self.r.max()) * reach + self.SKIN
             hi = np.searchsorted(xs, xs + lmax, side='right')
             first = np.arange(1, n + 1)
             counts = np.maximum(hi - first, 0)
@@ -309,7 +320,7 @@ class Simulation:
             I, J = order[si], order[sj]
             dx = self.x[J] - self.x[I]
             dy = self.y[J] - self.y[I]
-            lim = self.r[I] + self.r[J] + self.SKIN
+            lim = (self.r[I] + self.r[J]) * reach + self.SKIN
             keep = dx * dx + dy * dy < lim * lim
             I, J = I[keep], J[keep]
             bi, bj = self.bonds
@@ -395,6 +406,55 @@ class Simulation:
         self.vx[J] -= fx
         self.vy[J] -= fy
 
+    # ---------------- притяжение (Ван-дер-Ваальс) ----------------
+    def eps(self):
+        """Глубина ямы ε в единицах энергии модели: kT = m·⟨v_x²⟩ = r²·u² для основной компоненты."""
+        return self.p['attr'] * self.p['r'] ** 2 * self.U0 ** 2
+
+    def attract(self, dt):
+        """Притяжение между поверхностями молекул: потенциал U(ρ) = −ε(1 − s²)²,
+        s = (ρ − d)/(LAM·d − d), d = r_i + r_j — яма глубины ε у касания, плавно уходящая
+        в ноль на расстоянии LAM·d. Отталкивание при касании — упругий удар (collide)."""
+        eps = self.eps()
+        I, J = self.pairs
+        if eps <= 0 or not len(I):
+            return
+        dx = self.x[J] - self.x[I]
+        dy = self.y[J] - self.y[I]
+        d = self.r[I] + self.r[J]
+        w = (self.LAM - 1) * d
+        rho = np.sqrt(dx * dx + dy * dy)
+        s = (rho - d) / w
+        on = (s > 0) & (s < 1)
+        if not on.any():
+            return
+        I, J, dx, dy, rho, s, w = I[on], J[on], dx[on], dy[on], rho[on], s[on], w[on]
+        f = 4 * eps * s * (1 - s * s) / w * dt  # |dU/dρ|·dt — импульс за шаг, тянет пару друг к другу
+        fx, fy = f * dx / rho, f * dy / rho
+        n = len(self.x)
+        bc = np.bincount
+        self.vx += (bc(I, fx, n) - bc(J, fx, n)) / self.m
+        self.vy += (bc(I, fy, n) - bc(J, fy, n)) / self.m
+
+    def vdw_factor(self):
+        """Теория Ван-дер-Ваальса для двумерного газа основной компоненты: во сколько раз
+        дисперсия числа молекул в области больше биномиальной,
+            F = kT·(∂n/∂P)_T = 1 / [1/(1 − bn)² − 2an/kT],
+        b = 2πr² (половина площади, недоступной центру соседа), a = −π∫U(ρ)ρdρ.
+        None — теория неприменима (примесь, пары атомов); inf — за спинодалью (газ расслаивается)."""
+        p = self.p
+        if p['impN'] > 0 or p['diatomic'] or p['count'] != 'main':
+            return None
+        r, N = p['r'], self.main_n()
+        n = N / ((self.W - 2 * r) * (self.H - 2 * r))   # концентрация по доступной центрам площади
+        d = 2 * r
+        w = (self.LAM - 1) * d
+        b = 2 * math.pi * r * r
+        a = math.pi * self.eps() * w * (8 * d / 15 + w / 6)   # = π ε ∫₀¹(1 − s²)²(d + sw) w ds
+        kT = r * r * p['u'] ** 2
+        den = 1 / (1 - b * n) ** 2 - 2 * a * n / kT if b * n < 1 else -1
+        return 1 / den if den > 0 else math.inf
+
     def step(self, dt):
         W, H = self.W, self.H
         x, y, vx, vy, r = self.x, self.y, self.vx, self.vy, self.r
@@ -403,6 +463,7 @@ class Simulation:
         x += vx * dt
         y += vy * dt
         self.bond_forces(dt)
+        self.attract(dt)
         self.collide()
         # стенки сосуда
         np.copyto(vx, np.abs(vx), where=x < r)

@@ -5,6 +5,8 @@ import tkinter as tk
 import tkinter.font as tkfont
 from html.parser import HTMLParser
 
+import fonts
+
 FONT = 'Segoe UI'
 INK, MUTED, ACCENT, LINE = '#1f2937', '#6b7280', '#1d3557', '#e2e4dc'
 
@@ -37,9 +39,9 @@ class _Runs(HTMLParser):
 
 def frac_canvas(master, num, den, root, family, size, wheel):
     """Дробь «этажом» на маленьком холсте: числитель над чертой, знаменатель под ней."""
-    fonts = {'': (family, size), 'sub': (family, max(7, round(size * 0.7)))}
-    fonts['sup'] = fonts['sub']
-    big, small = tkfont.Font(master, font=fonts['']), tkfont.Font(master, font=fonts['sub'])
+    ff = {'': (family, size), 'sub': (family, max(7, round(size * 0.7)))}
+    ff['sup'] = ff['sub']
+    big, small = tkfont.Font(master, font=ff['']), tkfont.Font(master, font=ff['sub'])
     asc, lh = big.metrics('ascent'), big.metrics('linespace')
     shift = {'': 0, 'sub': round(asc * 0.25), 'sup': -round(asc * 0.45)}
     parts = [_Runs(num).runs, _Runs(den).runs]
@@ -61,7 +63,7 @@ def frac_canvas(master, num, den, root, family, size, wheel):
         base = top + k * (hp + 2 * gap + 1) + up + asc
         for t, m in runs:
             f = small if m else big
-            cv.create_text(x, base + shift[m] - f.metrics('ascent'), text=t, anchor='nw', font=fonts[m],
+            cv.create_text(x, base + shift[m] - f.metrics('ascent'), text=t, anchor='nw', font=ff[m],
                            fill=INK)
             x += f.measure(t)
     yb = top + hp + gap
@@ -78,29 +80,29 @@ class DocView(tk.Frame):
     def __init__(self, master, **kw):
         super().__init__(master, bg=BG, **kw)
         self.text = tk.Text(self, wrap='word', bd=0, highlightthickness=0, padx=40, pady=24,
-                            bg=BG, fg=INK, font=(FONT, 12), cursor='arrow',
+                            bg=BG, fg=INK, font=fonts.font(12), cursor='arrow',
                             spacing1=2, spacing3=2)
         sb = tk.Scrollbar(self, command=self.text.yview)
         self.text.configure(yscrollcommand=sb.set)
         sb.pack(side='right', fill='y')
         self.text.pack(side='left', fill='both', expand=True)
         t = self.text
-        t.tag_configure('h2', font=(FONT, 18, 'bold'), foreground=ACCENT, spacing1=18, spacing3=8)
-        t.tag_configure('h3', font=(FONT, 14, 'bold'), foreground=ACCENT, spacing1=12, spacing3=4)
-        t.tag_configure('b', font=(FONT, 12, 'bold'))
-        t.tag_configure('i', font=(FONT, 12, 'italic'))
-        t.tag_configure('bi', font=(FONT, 12, 'bold italic'))
-        t.tag_configure('sub', offset=-4, font=(FONT, 9))
-        t.tag_configure('sup', offset=6, font=(FONT, 9))
-        t.tag_configure('eq', font=('Cambria', 14), lmargin1=40, lmargin2=40,
+        t.tag_configure('h2', font=fonts.font(18, 'bold'), foreground=ACCENT, spacing1=18, spacing3=8)
+        t.tag_configure('h3', font=fonts.font(14, 'bold'), foreground=ACCENT, spacing1=12, spacing3=4)
+        t.tag_configure('b', font=fonts.font(12, 'bold'))
+        t.tag_configure('i', font=fonts.font(12, 'italic'))
+        t.tag_configure('bi', font=fonts.font(12, 'bold', 'italic'))
+        t.tag_configure('sub', offset=-4, font=fonts.font(9))
+        t.tag_configure('sup', offset=6, font=fonts.font(9))
+        t.tag_configure('eq', font=fonts.font(14, family='Cambria'), lmargin1=40, lmargin2=40,
                         spacing1=6, spacing3=6)
         # индексы и степени внутри формул (настроены после 'eq', чтобы перебить его шрифт)
-        t.tag_configure('eqsub', offset=-5, font=('Cambria', 10))
-        t.tag_configure('eqsup', offset=7, font=('Cambria', 10))
+        t.tag_configure('eqsub', offset=-5, font=fonts.font(10, family='Cambria'))
+        t.tag_configure('eqsup', offset=7, font=fonts.font(10, family='Cambria'))
         t.tag_configure('muted', foreground=MUTED)
         t.tag_configure('link', foreground='#2f5d8a', underline=True)
-        t.tag_configure('th', font=(FONT, 12, 'bold'), background='#eef3f8')
-        t.tag_configure('cell0', font=(FONT, 12, 'bold'), foreground=ACCENT)
+        t.tag_configure('th', font=fonts.font(12, 'bold'), background='#eef3f8')
+        t.tag_configure('cell0', font=fonts.font(12, 'bold'), foreground=ACCENT)
         t.tag_configure('cell2', foreground='#2f5d8a', lmargin1=24, lmargin2=24)
         t.tag_configure('cell1', lmargin1=24, lmargin2=24)
         t.tag_bind('link', '<Enter>', lambda e: t.configure(cursor='hand2'))
@@ -165,7 +167,8 @@ class _Renderer(HTMLParser):
             num, den, root = self.fracs[int(a['k'])]
             tags = self._tags()
             eq = 'eq' in tags
-            cv = frac_canvas(self.t, num, den, root, 'Cambria' if eq else FONT, 14 if eq else 12, self.wheel)
+            cv = frac_canvas(self.t, num, den, root, 'Cambria' if eq else FONT,
+                             round((14 if eq else 12) * fonts.SCALE), self.wheel)
             self.t.window_create('end', window=cv, align='center', padx=1)
             for tg in tags:  # отступ строки формулы
                 self.t.tag_add(tg, 'end-2c')

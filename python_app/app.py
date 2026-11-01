@@ -16,6 +16,7 @@ from tkinter import ttk
 from PIL import Image, ImageDraw, ImageTk
 
 import charts
+import fonts
 import palette
 from htmlview import DocView
 from i18n import I18N, LANGS
@@ -23,7 +24,7 @@ from sim import Simulation
 
 BG, PANEL, INK, MUTED, LINE = '#f4f5f0', '#ffffff', '#1f2937', '#6b7280', '#e2e4dc'
 ACCENT, ACCENT2 = '#1d3557', '#2f5d8a'
-FONT = 'Segoe UI'
+FONT = fonts.FAMILY  # для шрифтов, заданных в пикселях (страница авторов)
 
 def asset(name):
     """Путь к картинке из python_app/assets: рядом со скриптом или внутри собранного exe."""
@@ -32,7 +33,7 @@ def asset(name):
 
 
 BASE = dict(W=600.0, N=100, r=4.0, u=2.0, frac=0.3, shape='strip', wall=False, hole=0.25,
-            impN=0, impR=10.0, diatomic=False, count='main', init='uniform')
+            impN=0, impR=10.0, diatomic=False, count='main', init='uniform', attr=0.0)
 # готовые опыты: параметры модели, показываемые кривые, скорость моделирования
 PRESETS = [
     ('few', 'presetFew', dict(N=6, r=6, frac=0.25, shape='corner'), dict(binom=True), 6),
@@ -47,13 +48,17 @@ PRESETS = [
     ('bigAtoms', 'presetBigAtoms', dict(N=40, r=12, frac=0.25, shape='corner'), dict(binom=True), 3),
     ('diatomic', 'presetDiatomic', dict(N=120, r=4, frac=0.3, diatomic=True), dict(binom=True), 3),
     ('imp', 'presetImp', dict(N=150, r=3, frac=0.3, impN=15, impR=18), dict(binom=True), 2),
+    ('vdw', 'presetVdw', dict(N=300, r=4, frac=0.3, attr=1.0), dict(binom=True), 3),
+    ('condense', 'presetCondense', dict(N=300, r=4, frac=0.3, attr=2.5), dict(binom=True), 4),
 ]
 PRESET_BY_ID = {p[0]: p for p in PRESETS}
+# доли высоты левой части окна: сосуд и графики под ним (например, 3 и 2 — сосуд крупнее графиков)
+VESSEL_SHARE, CHARTS_SHARE = 1, 1
 
 
 def btn(master, primary=False, big=False, **kw):
     b = tk.Button(master, relief='flat', bd=0, cursor='hand2',
-                  font=(FONT, 13 if big else 10), padx=18 if big else 12, pady=10 if big else 5,
+                  font=fonts.font(13 if big else 10), padx=18 if big else 12, pady=10 if big else 5,
                   bg=ACCENT if primary else PANEL, fg='#ffffff' if primary else INK,
                   activebackground=ACCENT2 if primary else '#eef3f8',
                   activeforeground='#ffffff' if primary else INK,
@@ -66,6 +71,10 @@ class VesselView:
     """Отрисовка сосуда: кадр рисуется в памяти (Pillow, со сглаживанием)
     и выводится на tk.Canvas одним изображением; подписи — элементы холста."""
     SS = 2  # коэффициент суперсэмплинга
+    # Суперсэмплинг рисует кадр в SS² раз больше пикселей. На большом окне (экран высокой
+    # чёткости) сглаживание и так незаметно, а кадр из-за него рисуется в 3 раза дольше —
+    # поэтому сглаживаем только сосуды меньше этого числа пикселей (проектор, небольшое окно).
+    SS_MAX_PIXELS = 600_000
 
     def __init__(self, canvas, sim, labels=True):
         self.cv, self.sim, self.labels = canvas, sim, labels
@@ -93,7 +102,7 @@ class VesselView:
             cv.itemconfigure(self.img_item, image=self.photo)
             self.text_key = None
         cv.coords(self.img_item, ox, oy)
-        S = self.SS
+        S = self.SS if iw * ih <= self.SS_MAX_PIXELS else 1
         K = k * S
         img = Image.new('RGB', (iw * S, ih * S), rgb(P['vbg']))
         d = ImageDraw.Draw(img)
@@ -154,7 +163,7 @@ class VesselView:
             d.ellipse([x - r, y - r, x + r, y + r], fill=tc if ins[t_idx] else (255, 255, 255),
                       outline=tc, width=max(int(1.5 * S), int(r * 0.3)))
         d.rectangle([0, 0, iw * S - 1, ih * S - 1], outline=rgb(P['wall']), width=3 * S)
-        self.photo.paste(img.reduce(S))
+        self.photo.paste(img.reduce(S) if S > 1 else img)
 
         key = (w, h, ox, oy, closed_text, self.labels, P['regionText'])
         if key != self.text_key:
@@ -162,12 +171,12 @@ class VesselView:
             cv.delete('label')
             if self.labels:
                 cv.create_text(ox + 10, oy + 8, text='v', anchor='nw', fill=P['regionText'],
-                               font=(FONT, 13, 'italic'), tags='label')
+                               font=fonts.font(13, 'italic'), tags='label')
                 cv.create_text(ox + s.W * k - 10, oy + 8, text='V', anchor='ne', fill=MUTED,
-                               font=(FONT, 13, 'italic'), tags='label')
+                               font=fonts.font(13, 'italic'), tags='label')
             if closed_text:
                 t = cv.create_text(w / 2, oy + s.H * k - 14, text=closed_text, anchor='s', width=w * 0.8,
-                                   fill='#7a2e1d', font=(FONT, 10), tags='label')
+                                   fill='#7a2e1d', font=fonts.font(10), tags='label')
                 bb = cv.bbox(t)
                 r = cv.create_rectangle(bb[0] - 8, bb[1] - 5, bb[2] + 8, bb[3] + 5, fill='#fff4e5',
                                         outline='#e9b872', tags='label')
@@ -193,7 +202,8 @@ class App(tk.Tk):
         except tk.TclError:
             pass
         self.scale_ui = self.winfo_fpixels('1i') / 96
-        charts.SCALE = self.scale_ui
+        self.sized = []  # (виджет, параметр, размер) — пересчитываются при смене размера шрифта
+        self.option_add('*TCombobox*Listbox.font', fonts.font(10))
         self.loc = []          # (виджет, ключ) для смены языка
         self.loc_combos = []   # (combobox, [ключи])
         self.lang_combos = []
@@ -202,7 +212,8 @@ class App(tk.Tk):
         self.running = False
         self.sim_speed = 2.0
         self.view = dict(tagged=True, binom=True, pois=False, gauss=False,
-                         molColors='region', histColors='one', scheme='color', tzoom=0)
+                         molColors='region', histColors='one', scheme='color', tzoom=0, histRot=False)
+        self.panel_shown = True
         self.menu_sim = Simulation()
         self.menu_sim.p.update(N=70, r=5, u=0.8, frac=0.2, shape='corner')
         self.menu_sim.reset()
@@ -224,6 +235,9 @@ class App(tk.Tk):
         self.sync_controls()
         self.apply_lang()
         self.bind('<space>', self._space)
+        for seq, d in (('<Control-plus>', 1), ('<Control-equal>', 1), ('<Control-KP_Add>', 1),
+                       ('<Control-minus>', -1), ('<Control-KP_Subtract>', -1), ('<Control-Key-0>', 0)):
+            self.bind(seq, lambda e, d=d: self.set_font_scale(fonts.SCALE + 0.1 * d if d else fonts.DEFAULT))
         self.last = time.perf_counter()
         self.frame_no = 0
         self.after(16, self.loop)
@@ -236,6 +250,33 @@ class App(tk.Tk):
     def L(self, widget, key):
         self.loc.append((widget, key))
         return widget
+
+    # ---------------- размер шрифта ----------------
+    def px(self, v):
+        """Размер в пикселях, растущий вместе с экраном (DPI) и размером шрифта."""
+        return int(round(v * self.scale_ui * fonts.SCALE))
+
+    def sz(self, widget, **opts):
+        """Задать размеры виджета (числа — через px, функции — как есть) и пересчитывать их
+        при смене размера шрифта."""
+        for k, v in opts.items():
+            self.sized.append((widget, k, v))
+            widget.configure(**{k: v() if callable(v) else self.px(v)})
+        return widget
+
+    def _row_h(self):
+        return fonts.font(10).metrics('linespace') + self.px(8)
+
+    def _side_w(self):
+        """Ширина панели параметров: растёт со шрифтом, но не больше трети окна (проектор)."""
+        return min(self.px(380), int(max(self.winfo_width(), 1040) * 0.34))
+
+    def set_font_scale(self, k):
+        k = min(2.2, max(0.8, round(k, 1)))
+        fonts.set_scale(k)
+        for w, opt, v in self.sized:
+            w.configure(**{opt: v() if callable(v) else self.px(v)})
+        self.apply_lang()  # перерисовать теорию (дроби — картинки), легенды и графики
 
     def apply_lang(self):
         self.title(self.t('appTitle'))
@@ -250,7 +291,8 @@ class App(tk.Tk):
             cb.configure(values=names)
             cb.current(LANGS.index(self.lang))
         self.lang_btn.configure(text='%s: %s' % (self.t('menuLanguage'), self.t('langName')))
-        self.colors_btn.configure(text=self.t('colorsMenu') + ' ▾')
+        self.view_btn.configure(text=self.t('viewMenu') + ' ▾')
+        self.update_panel_btn()
         self.update_zoom_label()
         for m, i, k in self.menu_labels:
             m.entryconfigure(i, label=self.t(k))
@@ -272,6 +314,14 @@ class App(tk.Tk):
             html = html[:i] + extra + html[i:]
         html = html.replace('</nav>', '<a href="#t11">%s</a><a href="#t12">%s</a></nav>'
                             % (self.t('tocExtra'), self.t('tocRefs')), 1)
+        # раздел 9а «газ Ван-дер-Ваальса» — после раздела 9 (размер молекул); есть только по-русски
+        if 'theoryVdw' in I18N[self.lang]:
+            html = html.replace('<h2 id="t11">', self.t('theoryVdw') + '<h2 id="t11">', 1)
+            html = html.replace('<a href="#t10">', '<a href="#t9a">%s</a><a href="#t10">' % self.t('tocVdw'), 1)
+        # раздел 5а «дискретное ↔ непрерывное» — после предела Гаусса; есть только по-русски
+        if 'theoryDiscrete' in I18N[self.lang]:
+            html = html.replace('<h2 id="t6">', self.t('theoryDiscrete') + '<h2 id="t6">', 1)
+            html = html.replace('<a href="#t6">', '<a href="#t5a">%s</a><a href="#t6">' % self.t('tocDiscrete'), 1)
         return html + self.t('theoryRefs')
 
     def set_lang(self, l):
@@ -279,7 +329,7 @@ class App(tk.Tk):
         self.apply_lang()
 
     def _lang_combo(self, master):
-        cb = ttk.Combobox(master, state='readonly', width=10, font=(FONT, 10))
+        cb = ttk.Combobox(master, state='readonly', width=10, font=fonts.font(10))
         cb.bind('<<ComboboxSelected>>', lambda e: self.set_lang(LANGS[cb.current()]))
         self.lang_combos.append(cb)
         return cb
@@ -294,7 +344,7 @@ class App(tk.Tk):
         bar = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=LINE)
         bar.pack(fill='x')
         self.L(btn(bar, command=lambda: self.go('menu')), 'back').pack(side='left', padx=(10, 6), pady=8)
-        bar.title_lbl = self.L(tk.Label(bar, bg=PANEL, fg=ACCENT, font=(FONT, 14, 'bold'), anchor='w'), title_key)
+        bar.title_lbl = self.L(tk.Label(bar, bg=PANEL, fg=ACCENT, font=fonts.font(14, 'bold'), anchor='w'), title_key)
         bar.title_lbl.pack(side='left', padx=8)
         self._lang_combo(bar).pack(side='right', padx=10)
         return bar
@@ -308,20 +358,20 @@ class App(tk.Tk):
         self.menu_view = VesselView(self.menu_cv, self.menu_sim, labels=False)
         card = tk.Frame(f, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=34, pady=28)
         card.place(relx=0.5, rely=0.5, anchor='center')
-        self.L(tk.Label(card, bg=PANEL, fg=ACCENT2, font=(FONT, 9)), 'kicker').pack(anchor='w')
-        self.L(tk.Label(card, bg=PANEL, fg=ACCENT, font=(FONT, 24, 'bold'), justify='left'),
+        self.L(tk.Label(card, bg=PANEL, fg=ACCENT2, font=fonts.font(9)), 'kicker').pack(anchor='w')
+        self.L(tk.Label(card, bg=PANEL, fg=ACCENT, font=fonts.font(24, 'bold'), justify='left'),
                'appTitle').pack(anchor='w', pady=(6, 8))
-        self.L(tk.Label(card, bg=PANEL, fg=MUTED, font=(FONT, 11), wraplength=470, justify='left'),
-               'appSubtitle').pack(anchor='w', pady=(0, 18))
+        self.sz(self.L(tk.Label(card, bg=PANEL, fg=MUTED, font=fonts.font(11), justify='left'),
+                       'appSubtitle'), wraplength=470).pack(anchor='w', pady=(0, 18))
         for key, target, prim in (('menuDemo', 'demo', True), ('menuTheory', 'theory', False),
                                   ('menuAuthors', 'authors', False)):
             self.L(btn(card, primary=prim, big=True, command=lambda g=target: self.go(g)),
                    key).pack(fill='x', pady=4)
-        self.lang_btn = tk.Menubutton(card, relief='flat', bd=0, font=(FONT, 13), bg=PANEL, fg=INK,
+        self.lang_btn = tk.Menubutton(card, relief='flat', bd=0, font=fonts.font(13), bg=PANEL, fg=INK,
                                       anchor='w', padx=18, pady=10, cursor='hand2',
                                       highlightthickness=1, highlightbackground=LINE,
                                       activebackground='#eef3f8')
-        m = tk.Menu(self.lang_btn, tearoff=0, font=(FONT, 12))
+        m = tk.Menu(self.lang_btn, tearoff=0, font=fonts.font(12))
         for l in LANGS:
             m.add_command(label=I18N[l]['langName'], command=lambda l=l: self.set_lang(l))
         self.lang_btn.configure(menu=m)
@@ -403,7 +453,7 @@ class App(tk.Tk):
         p = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=12, pady=8)
         p.pack(fill='x', pady=(0, 8))
         if title_key:
-            self.L(tk.Label(p, bg=PANEL, fg=ACCENT, font=(FONT, 11, 'bold')), title_key).pack(anchor='w', pady=(0, 4))
+            self.L(tk.Label(p, bg=PANEL, fg=ACCENT, font=fonts.font(11, 'bold')), title_key).pack(anchor='w', pady=(0, 4))
         return p
 
     def _build_demo(self):
@@ -411,33 +461,43 @@ class App(tk.Tk):
         f.grid(row=0, column=0, sticky='nsew')
         self.screens['demo'] = f
         bar = self._topbar(f, 'appTitle')
-        self._colors_menu(bar).pack(side='right', padx=4)
+        self._view_menu(bar).pack(side='right', padx=4)
+        self.panel_btn = btn(bar, command=self.toggle_panel)
+        self.panel_btn.pack(side='right', padx=4)
         self.L(btn(bar, command=self.clear_stats), 'clearStats').pack(side='right', padx=4)
         self.L(btn(bar, command=self.restart), 'reset').pack(side='right', padx=4)
         self.play_btn = btn(bar, primary=True, command=self.toggle_play)
         self.play_btn.pack(side='right', padx=4)
+        # секундомер: сколько секунд реального времени копится текущая статистика
+        self.timer_lbl = tk.Label(bar, bg=PANEL, fg=ACCENT, font=fonts.mono(12, 'bold'))
+        self.timer_lbl.pack(side='right', padx=(8, 4))
+        self.timer_text = None
         # заголовок упаковываем последним: в узком окне (проектор) обрезается он, а не кнопки
         bar.title_lbl.pack_forget()
         bar.title_lbl.pack(side='left', padx=8, fill='x', expand=True)
 
         body = tk.Frame(f, bg=BG)
         body.pack(fill='both', expand=True, padx=10, pady=10)
-        side_outer = tk.Frame(body, bg=BG, width=int(380 * self.scale_ui))
+        self.side_outer = side_outer = self.sz(tk.Frame(body, bg=BG), width=self._side_w)
         side_outer.pack(side='right', fill='y', padx=(10, 0))
         side_outer.pack_propagate(False)
-        main = tk.Frame(body, bg=BG)
+        body.bind('<Configure>', lambda e: side_outer.configure(width=self._side_w()))
+        self.main_area = main = tk.Frame(body, bg=BG)
         main.pack(side='left', fill='both', expand=True)
 
+        main.columnconfigure(0, weight=1)
+        main.rowconfigure(0, weight=VESSEL_SHARE, uniform='main')
+        main.rowconfigure(1, weight=CHARTS_SHARE, uniform='main')
         vp = tk.Frame(main, bg=PANEL, highlightthickness=1, highlightbackground=LINE)
-        vp.pack(fill='both', expand=True)
-        self.vessel_leg = tk.Canvas(vp, bg=PANEL, height=int(20 * self.scale_ui), highlightthickness=0)
+        vp.grid(row=0, column=0, sticky='nsew')
+        self.vessel_leg = self.sz(tk.Canvas(vp, bg=PANEL, highlightthickness=0), height=20)
         self.vessel_leg.pack(side='bottom', fill='x', padx=8, pady=(0, 4))
         self.vessel_cv = tk.Canvas(vp, bg=PANEL, highlightthickness=0)
         self.vessel_cv.pack(fill='both', expand=True, padx=4, pady=4)
         self.vessel = VesselView(self.vessel_cv, self.sim)
 
         ch = tk.Frame(main, bg=BG)
-        ch.pack(fill='both', expand=True, pady=(10, 0))
+        ch.grid(row=1, column=0, sticky='nsew', pady=(10, 0))
         ch.columnconfigure(0, weight=1, uniform='c')
         ch.columnconfigure(1, weight=1, uniform='c')
         ch.rowconfigure(0, weight=1)
@@ -445,10 +505,19 @@ class App(tk.Tk):
         hp.grid(row=0, column=0, sticky='nsew', padx=(0, 5))
         sp = tk.Frame(ch, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=8, pady=6)
         sp.grid(row=0, column=1, sticky='nsew', padx=(5, 0))
-        self.L(tk.Label(hp, bg=PANEL, fg=ACCENT, font=(FONT, 11, 'bold')), 'histTitle').pack(anchor='w')
-        tg = tk.Frame(hp, bg=PANEL)
+        hh = tk.Frame(hp, bg=PANEL)
+        hh.pack(fill='x')
+        # поворот на 90°: n — по вертикали, на одной шкале с графиком n(t) справа
+        self.rot_btn = btn(hh, text='⟳ 90°', command=self.toggle_rotate)
+        self.rot_btn.pack(side='right')
+        self.L(tk.Label(hh, bg=PANEL, fg=ACCENT, font=fonts.font(11, 'bold'), anchor='w'),
+               'histTitle').pack(side='left', fill='x', expand=True)
+        # нижние строки обеих панелей одной высоты: тогда оба графика одного размера и
+        # у повёрнутой гистограммы одинаковые n стоят на одной высоте с графиком n(t)
+        tg = self.sz(tk.Frame(hp, bg=PANEL), height=self._row_h)
+        tg.pack_propagate(False)
         tg.pack(side='bottom', fill='x')
-        self.hist_leg = tk.Canvas(hp, bg=PANEL, height=int(20 * self.scale_ui), highlightthickness=0)
+        self.hist_leg = self.sz(tk.Canvas(hp, bg=PANEL, highlightthickness=0), height=20)
         self.hist_leg.pack(side='bottom', fill='x')
         self.hist_cv = tk.Canvas(hp, bg=PANEL, highlightthickness=0)
         self.hist_cv.pack(fill='both', expand=True)
@@ -456,19 +525,23 @@ class App(tk.Tk):
         for k, key in (('binom', 'showBinom'), ('pois', 'showPois'), ('gauss', 'showGauss')):
             v = tk.BooleanVar(value=self.view[k])
             self.show_vars[k] = v
-            self.L(tk.Checkbutton(tg, variable=v, bg=PANEL, font=(FONT, 10), activebackground=PANEL,
+            self.L(tk.Checkbutton(tg, variable=v, bg=PANEL, font=fonts.font(10), activebackground=PANEL,
                                   command=lambda k=k: self._toggle_curve(k)), key).pack(side='left', padx=(0, 10))
         hdr = tk.Frame(sp, bg=PANEL)
         hdr.pack(fill='x')
         # масштаб n(t): «−» отдалить, «+» приблизить (или колёсико мыши над графиком);
         # кнопки упакованы раньше заголовка, чтобы в узком окне обрезался заголовок
         btn(hdr, text='+', command=lambda: self.zoom_series(-1)).pack(side='right')
-        self.zoom_lbl = tk.Label(hdr, bg=PANEL, fg=MUTED, font=(FONT, 10))
+        self.zoom_lbl = tk.Label(hdr, bg=PANEL, fg=MUTED, font=fonts.font(10))
         self.zoom_lbl.pack(side='right', padx=10)
         btn(hdr, text='−', command=lambda: self.zoom_series(1)).pack(side='right')
-        self.L(tk.Label(hdr, bg=PANEL, fg=ACCENT, font=(FONT, 11, 'bold'), anchor='w'),
+        self.L(tk.Label(hdr, bg=PANEL, fg=ACCENT, font=fonts.font(11, 'bold'), anchor='w'),
                'timeTitle').pack(side='left', fill='x', expand=True)
-        self.series_leg = tk.Canvas(sp, bg=PANEL, height=int(20 * self.scale_ui), highlightthickness=0)
+        sb = self.sz(tk.Frame(sp, bg=PANEL), height=self._row_h)
+        sb.pack_propagate(False)
+        sb.pack(side='bottom', fill='x')
+        self.L(tk.Label(sb, bg=PANEL, fg=MUTED, font=fonts.font(9), anchor='w'), 'zoomHint').pack(side='left')
+        self.series_leg = self.sz(tk.Canvas(sp, bg=PANEL, highlightthickness=0), height=20)
         self.series_leg.pack(side='bottom', fill='x')
         self.series_cv = tk.Canvas(sp, bg=PANEL, highlightthickness=0)
         self.series_cv.pack(fill='both', expand=True)
@@ -480,8 +553,8 @@ class App(tk.Tk):
             self.series_cv.bind(ev, wheel)
 
         # прокручиваемая правая панель; сосуд и графики слева при этом остаются на месте
-        scv = tk.Canvas(side_outer, bg=BG, highlightthickness=0, yscrollincrement=int(20 * self.scale_ui))
-        ssb = tk.Scrollbar(side_outer, command=scv.yview, width=int(16 * self.scale_ui))
+        scv = self.sz(tk.Canvas(side_outer, bg=BG, highlightthickness=0), yscrollincrement=20)
+        ssb = self.sz(tk.Scrollbar(side_outer, command=scv.yview), width=16)
         scv.configure(yscrollcommand=ssb.set)
         ssb.pack(side='right', fill='y')
         scv.pack(side='left', fill='both', expand=True)
@@ -517,23 +590,29 @@ class App(tk.Tk):
                 bind_tree(c)
         bind_tree(root)
 
-    def _colors_menu(self, bar):
-        """Меню «Цвета»: как раскрашивать молекулы и гистограмму, цветовая схема."""
-        mb = tk.Menubutton(bar, relief='flat', bd=0, font=(FONT, 10), bg=PANEL, fg=INK, padx=12, pady=5,
+    def _view_menu(self, bar):
+        """Меню «Вид»: размер шрифта, раскраска молекул и гистограммы, цветовая схема."""
+        mb = tk.Menubutton(bar, relief='flat', bd=0, font=fonts.font(10), bg=PANEL, fg=INK, padx=12, pady=5,
                            cursor='hand2', highlightthickness=1, highlightbackground=LINE,
                            activebackground='#eef3f8')
-        m = tk.Menu(mb, tearoff=0, font=(FONT, 12))
+        m = tk.Menu(mb, tearoff=0, font=fonts.font(12))
         mb.configure(menu=m)
-        self.colors_btn = mb
+        self.view_btn = mb
         self.menu_labels = []  # (меню, номер пункта, ключ текста) — для смены языка
+        m.add_command(state='disabled', font=fonts.font(12, 'bold'))
+        self.menu_labels.append((m, m.index('end'), 'fontTitle'))
+        for key, acc, k in (('fontBigger', 'Ctrl +', lambda: fonts.SCALE + 0.1),
+                            ('fontSmaller', 'Ctrl −', lambda: fonts.SCALE - 0.1),
+                            ('fontDefault', 'Ctrl 0', lambda: fonts.DEFAULT)):
+            m.add_command(accelerator=acc, command=lambda k=k: self.set_font_scale(k()))
+            self.menu_labels.append((m, m.index('end'), key))
         groups = [('molColors', 'colMolTitle', [('region', 'colMolRegion'), ('speed', 'colMolSpeed'),
                                                 ('origin', 'colMolOrigin')]),
                   ('histColors', 'colHistTitle', [('one', 'colHistOne'), ('sigma', 'colHistSigma')]),
                   ('scheme', 'colSchemeTitle', [(k, 'colScheme_' + k) for k in palette.SCHEMES])]
         for gi, (name, title, opts) in enumerate(groups):
-            if gi:
-                m.add_separator()
-            m.add_command(state='disabled', font=(FONT, 12, 'bold'))
+            m.add_separator()
+            m.add_command(state='disabled', font=fonts.font(12, 'bold'))
             self.menu_labels.append((m, m.index('end'), title))
             v = tk.StringVar(self, value=self.view[name])
             for val, key in opts:
@@ -557,43 +636,68 @@ class App(tk.Tk):
             palette.set_palette(value)
         self.refresh()
 
+    def toggle_panel(self):
+        """Скрыть / показать панель параметров: сосуд и графики занимают всю ширину."""
+        self.panel_shown = not self.panel_shown
+        if self.panel_shown:
+            self.side_outer.pack(side='right', fill='y', padx=(10, 0), before=self.main_area)
+        else:
+            self.side_outer.pack_forget()
+        self.update_panel_btn()
+
+    def update_panel_btn(self):
+        self.panel_btn.configure(text=self.t('panelHide' if self.panel_shown else 'panelShow'))
+
+    def toggle_rotate(self):
+        on = self.view['histRot'] = not self.view['histRot']
+        self.rot_btn.configure(bg=ACCENT if on else PANEL, fg='#ffffff' if on else INK,
+                               activebackground=ACCENT2 if on else '#eef3f8',
+                               activeforeground='#ffffff' if on else INK)
+        self.draw_charts()
+
+    def update_timer(self):
+        text = '⏱ %d:%02d' % divmod(int(self.sim.run_time), 60)
+        if text != self.timer_text:
+            self.timer_text = text
+            self.timer_lbl.configure(text=text)
+
     def _build_side(self, side):
         # статистика
         p = self._panel(side, 'secStats')
         tb = tk.Frame(p, bg=PANEL)
         tb.pack(fill='x')
         tb.columnconfigure(0, weight=1)
-        self.L(tk.Label(tb, bg=PANEL, fg=MUTED, font=(FONT, 9, 'bold')), 'colExp').grid(row=0, column=1, sticky='e', padx=4)
-        self.L(tk.Label(tb, bg=PANEL, fg=MUTED, font=(FONT, 9, 'bold')), 'colTheory').grid(row=0, column=2, sticky='e', padx=4)
+        self.L(tk.Label(tb, bg=PANEL, fg=MUTED, font=fonts.font(9, 'bold')), 'colExp').grid(row=0, column=1, sticky='e', padx=4)
+        self.L(tk.Label(tb, bg=PANEL, fg=MUTED, font=fonts.font(9, 'bold')), 'colTheory').grid(row=0, column=2, sticky='e', padx=4)
         self.st = {}
         rows = [('stN', 'n', True), ('stSamples', 'samples', True), ('stP', 'p', False), ('stMean', 'mean', False),
-                ('stVar', 'var', False), ('stRel', 'rel', False), ('stTag', 'tag', False)]
+                ('stVar', 'var', False), ('stF', 'F', False), ('stRel', 'rel', False), ('stTag', 'tag', False)]
         self.tag_row = []
         for i, (key, name, span) in enumerate(rows, start=1):
-            lab = self.L(tk.Label(tb, bg=PANEL, fg=INK, font=(FONT, 9), anchor='w', justify='left',
-                                  wraplength=int(170 * self.scale_ui)), key)
+            lab = self.sz(self.L(tk.Label(tb, bg=PANEL, fg=INK, font=fonts.font(9), anchor='w', justify='left'),
+                                 key), wraplength=170)
             lab.grid(row=i, column=0, sticky='w', pady=1)
             if span:
-                e = tk.Label(tb, bg=PANEL, font=('Consolas', 10))
+                e = tk.Label(tb, bg=PANEL, font=fonts.mono(10))
                 e.grid(row=i, column=1, columnspan=2, sticky='e', padx=4)
                 self.st[name] = (e, None)
                 cells = [lab, e]
             else:
-                e = tk.Label(tb, bg=PANEL, font=('Consolas', 10))
-                th = tk.Label(tb, bg=PANEL, font=('Consolas', 10), fg=ACCENT2)
+                e = tk.Label(tb, bg=PANEL, font=fonts.mono(10))
+                th = tk.Label(tb, bg=PANEL, font=fonts.mono(10), fg=ACCENT2)
                 e.grid(row=i, column=1, sticky='e', padx=4)
                 th.grid(row=i, column=2, sticky='e', padx=4)
                 self.st[name] = (e, th)
                 cells = [lab, e, th]
             if name == 'tag':
                 self.tag_row = cells
-        self.pairs_note = self.L(tk.Label(p, bg=PANEL, fg=MUTED, font=(FONT, 8), wraplength=int(330 * self.scale_ui),
-                                          justify='left'), 'pairsNote')
+        self.pairs_note = self.sz(self.L(tk.Label(p, bg=PANEL, fg=MUTED, font=fonts.font(8), justify='left'),
+                                         'pairsNote'), wraplength=330)
 
         # готовые опыты
         p = self._panel(side, 'secPresets')
         keys = ['presetNone'] + [x[1] for x in PRESETS]
-        self.preset_cb = ttk.Combobox(p, state='readonly', font=(FONT, 10), height=len(keys))
+        self.preset_cb = ttk.Combobox(p, state='readonly', font=fonts.font(10), height=len(keys))
         self.preset_cb.pack(fill='x')
         self.loc_combos.append((self.preset_cb, keys))
         self.preset_cb.configure(values=[self.t(k) for k in keys])
@@ -625,6 +729,9 @@ class App(tk.Tk):
         self._slider(p, 'impN', 'impN', 0, 100, 1, reinit=True, fmt='%d')
         self._slider(p, 'impR', 'impR', 2, 25, 0.5, reinit=True, fmt='%.1f')
 
+        p = self._panel(side, 'secAttr')
+        self._slider(p, 'attr', 'attr', 0, 3, 0.1, live=self._on_attr, fmt='%.1f')
+
         p = self._panel(side, 'secSim')
         self._slider(p, 'speed', 'speed', 0.25, 10, 0.25, live=self._on_speed, fmt='×%.2f')
         self._combo(p, 'init', 'init', ['uniform', 'outside', 'inside'],
@@ -633,12 +740,13 @@ class App(tk.Tk):
     def _slider(self, parent, name, key, lo, hi, res, live=None, reinit=False, fmt='%s', on_release=None):
         row = tk.Frame(parent, bg=PANEL)
         row.pack(fill='x', pady=(4, 0))
-        self.L(tk.Label(row, bg=PANEL, fg=INK, font=(FONT, 9)), key).pack(side='left')
-        out = tk.Label(row, bg=PANEL, fg=ACCENT, font=('Consolas', 10, 'bold'))
+        self.L(tk.Label(row, bg=PANEL, fg=INK, font=fonts.font(9)), key).pack(side='left')
+        out = tk.Label(row, bg=PANEL, fg=ACCENT, font=fonts.mono(10, 'bold'))
         out.pack(side='right')
         sc = tk.Scale(parent, from_=lo, to=hi, resolution=res, orient='horizontal', showvalue=False,
-                      bg=PANEL, highlightthickness=0, troughcolor='#e6ebf2', bd=0, sliderlength=18,
+                      bg=PANEL, highlightthickness=0, troughcolor='#e6ebf2', bd=0,
                       activebackground=ACCENT2)
+        self.sz(sc, sliderlength=18, width=14)
         sc.pack(fill='x')
         info = dict(scale=sc, out=out, fmt=fmt, live=live, reinit=reinit, on_release=on_release)
         self.sliders[name] = info
@@ -674,15 +782,15 @@ class App(tk.Tk):
 
     def _check(self, parent, name, key, cmd):
         v = tk.BooleanVar()
-        cb = self.L(tk.Checkbutton(parent, variable=v, bg=PANEL, activebackground=PANEL, font=(FONT, 9),
-                                   anchor='w', justify='left', wraplength=int(320 * self.scale_ui),
-                                   command=lambda: cmd(v.get())), key)
+        cb = self.sz(self.L(tk.Checkbutton(parent, variable=v, bg=PANEL, activebackground=PANEL, font=fonts.font(9),
+                                           anchor='w', justify='left', command=lambda: cmd(v.get())), key),
+                     wraplength=320)
         cb.pack(fill='x', pady=(4, 0))
         self.checks[name] = v
 
     def _combo(self, parent, name, key, values, keys, cmd):
-        self.L(tk.Label(parent, bg=PANEL, fg=INK, font=(FONT, 9)), key).pack(anchor='w', pady=(6, 0))
-        cb = ttk.Combobox(parent, state='readonly', font=(FONT, 10), values=[self.t(k) for k in keys])
+        self.L(tk.Label(parent, bg=PANEL, fg=INK, font=fonts.font(9)), key).pack(anchor='w', pady=(6, 0))
+        cb = ttk.Combobox(parent, state='readonly', font=fonts.font(10), values=[self.t(k) for k in keys])
         cb.pack(fill='x')
         cb.bind('<<ComboboxSelected>>', lambda e: (cmd(values[cb.current()]), self.preset_cb.current(0)))
         self.loc_combos.append((cb, keys))
@@ -756,6 +864,10 @@ class App(tk.Tk):
         self.sim.reset()
         self.refresh()
 
+    def _on_attr(self, v):
+        self.sim.set_attr(v)
+        self.sim.clear_stats()
+
     def _on_speed(self, v):
         self.sim_speed = v
 
@@ -805,34 +917,37 @@ class App(tk.Tk):
 
     # ---------------- легенды и статистика ----------------
     def _legend(self, cv, items):
-        """items: (вид значка, цвет, подпись[, пунктир])"""
+        """items: (вид значка, цвет, подпись[, пунктир]); значки растут вместе с высотой полосы легенды"""
         C = palette.C
         cv.delete('all')
-        x = 4
         h = int(cv['height'])
+        u = h / 20                         # единица размера значков
+        x = 4 * u
         y = h / 2
         for kind, color, text, *dash in items:
-            w = 14
+            w = 14 * u
             if kind == 'box':
-                cv.create_rectangle(x, y - 5, x + 12, y + 5, fill=color, outline=C['barEdge'])
+                cv.create_rectangle(x, y - 5 * u, x + 12 * u, y + 5 * u, fill=color, outline=C['barEdge'])
             elif kind == 'band':
-                cv.create_rectangle(x, y - 5, x + 12, y + 5, fill=C['band'], outline=C['binom'], dash=(2, 2))
+                cv.create_rectangle(x, y - 5 * u, x + 12 * u, y + 5 * u, fill=C['band'], outline=C['binom'],
+                                    dash=(2, 2))
             elif kind in ('dot', 'ring'):  # молекула: закрашенная или полая
-                cv.create_oval(x + 1, y - 5, x + 11, y + 5, fill=color if kind == 'dot' else '#ffffff',
-                               outline=color, width=2)
+                cv.create_oval(x + u, y - 5 * u, x + 11 * u, y + 5 * u, fill=color if kind == 'dot' else '#ffffff',
+                               outline=color, width=2 * u)
             elif kind == 'imp':            # крупная молекула примеси
-                cv.create_oval(x - 1, y - 7, x + 13, y + 7, fill=color, outline=color)
+                cv.create_oval(x - u, y - 7 * u, x + 13 * u, y + 7 * u, fill=color, outline=color)
             elif kind == 'tag':            # выделенная молекула с ореолом
-                cv.create_oval(x - 1, y - 7, x + 13, y + 7, fill=C['tagHalo'], outline='')
-                cv.create_oval(x + 2, y - 4, x + 10, y + 4, fill=color, outline=color)
+                cv.create_oval(x - u, y - 7 * u, x + 13 * u, y + 7 * u, fill=C['tagHalo'], outline='')
+                cv.create_oval(x + 2 * u, y - 4 * u, x + 10 * u, y + 4 * u, fill=color, outline=color)
             elif kind == 'grad':           # шкала скоростей
-                w = 30
+                w = round(30 * u)
                 for i in range(w):
-                    cv.create_line(x + i, y - 5, x + i, y + 5, fill='#%02x%02x%02x' % palette.speed_rgb(i / (w - 1)))
+                    cv.create_line(x + i, y - 5 * u, x + i, y + 5 * u,
+                                   fill='#%02x%02x%02x' % palette.speed_rgb(i / (w - 1)))
             else:
-                cv.create_line(x, y, x + w, y, fill=color, width=2 * C['lw'], dash=dash[0] if dash else ())
-            t = cv.create_text(x + w + 4, y, text=text, anchor='w', fill=MUTED, font=(FONT, 9))
-            x = cv.bbox(t)[2] + 14
+                cv.create_line(x, y, x + w, y, fill=color, width=2 * u * C['lw'], dash=dash[0] if dash else ())
+            t = cv.create_text(x + w + 4 * u, y, text=text, anchor='w', fill=MUTED, font=fonts.font(9))
+            x = cv.bbox(t)[2] + 14 * u
 
     def draw_legends(self):
         C = palette.C
@@ -888,6 +1003,11 @@ class App(tk.Tk):
         st['mean'][1].configure(text=f(mT, 3))
         st['var'][0].configure(text=f(vr, 3))
         st['var'][1].configure(text=f(vT, 3))
+        # F = σ²/σ²_бином: опыт и теория Ван-дер-Ваальса (1 — идеальный газ, < 1 — тесно, > 1 — притяжение)
+        vb = N * p * (1 - p)
+        st['F'][0].configure(text=f(vr / vb, 2) if S > 1 and vb > 0 and not closed and not pairs else '—')
+        F = s.vdw_factor()
+        st['F'][1].configure(text='—' if F is None or closed else '∞' if F == math.inf else f(F, 2))
         st['rel'][0].configure(text=f(math.sqrt(vr) / mean, 3) if S > 1 and mean > 0 else '—')
         st['rel'][1].configure(text=f(math.sqrt(vT) / mT, 3) if mT > 0 else '—')
         show_tag = self.view['tagged'] and s.tagged >= 0
@@ -908,14 +1028,15 @@ class App(tk.Tk):
         s = self.sim
         N, p, closed = s.counted_n(), s.theory_p(), s.is_closed()
         pairs = s.pairs_counted()
+        sst = dict(series=s.series, N=N, p=p, closed=closed, n0=s.n0, pairs=pairs, zoom=self.view['tzoom'],
+                   xLabel=self.t('axisT'), yLabel=self.t('axisNt'))
         charts.hist(self.hist_cv, dict(N=N, p=p, closed=closed, n0=s.n0, hist=s.hist, samples=s.samples,
                                        pairs=pairs, show=dict(binom=self.view['binom'], pois=self.view['pois'],
                                                               gauss=self.view['gauss']),
                                        sigma=self.view['histColors'] == 'sigma',
+                                       rotate=self.view['histRot'], nrange=charts.series_range(sst)[1:3],
                                        xLabel=self.t('axisN'), yLabel=self.t('axisP'), empty=self.t('noData')))
-        charts.series(self.series_cv, dict(series=s.series, N=N, p=p, closed=closed, n0=s.n0, pairs=pairs,
-                                           zoom=self.view['tzoom'],
-                                           xLabel=self.t('axisT'), yLabel=self.t('axisNt')))
+        charts.series(self.series_cv, sst)
 
     def draw_vessel(self):
         self.vessel.draw(self.view['tagged'], self.t('closedNote') if self.sim.is_closed() else '',
@@ -934,13 +1055,16 @@ class App(tk.Tk):
     # ---------------- главный цикл ----------------
     def loop(self):
         now = time.perf_counter()
-        dt = min(0.05, now - self.last)
+        real_dt = now - self.last
+        dt = min(0.05, real_dt)
         self.last = now
         self.frame_no += 1
         try:
             if self.screen == 'demo':
                 if self.running:
                     self.sim.advance(self.sim_speed * dt * 30)
+                    self.sim.run_time += real_dt
+                self.update_timer()
                 if self.running or self.frame_no % 10 == 0:
                     self.draw_vessel()
                     if self.frame_no % 3 == 0:

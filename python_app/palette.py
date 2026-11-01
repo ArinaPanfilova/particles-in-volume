@@ -5,13 +5,13 @@
 PALETTES = {
     # обычная: как на рисунке к задаче
     'color': dict(
-        vbg='#fbfbf7', wall='#2b2b2b', region='#cfe6bd', regionEdge='#50823c', regionText='#28501e',
-        mol='#1d3557', imp='#c8553d', impLight='#fbe3dc', tag='#d62828', tagHalo='#f5c9c9',
-        startIn='#e07a1f', startOut='#1d3557', speed=['#2c62b4', '#9a3fa8', '#e2541c'],
-        axis='#6b7280', grid='#e5e7eb', text='#374151', bar='#8ab8e6', barEdge='#3f7fbf',
-        sig1='#8cc98c', sig2='#f2c27a', sig3='#ee8a80',
-        binom='#d62828', pois='#2a9d8f', gauss='#f4a261', band='#f6dede', line='#1d3557',
-        lw=1.0, binomDash=(), poisDash=(5, 4), gaussDash=(), meanDash=(6, 4)),
+        vbg='#fbfbf7', wall='#222222', region='#bfe3a5', regionEdge='#3f7a2a', regionText='#1f4a12',
+        mol='#16325c', imp='#d2452b', impLight='#fbe0d8', tag='#e01b1b', tagHalo='#f7c2c2',
+        startIn='#f07c10', startOut='#16325c', speed=['#2160c4', '#9a30b0', '#ef4f12'],
+        axis='#4b5563', grid='#e2e5ea', text='#1f2937', bar='#6aaae8', barEdge='#1f63ad',
+        sig1='#7cc97c', sig2='#f5bd5a', sig3='#f07a6e',
+        binom='#e01b1b', pois='#0f9a8a', gauss='#f28a1c', band='#fbd6d6', line='#16325c',
+        lw=1.3, binomDash=(), poisDash=(5, 4), gaussDash=(), meanDash=(6, 4)),
     # контрастная: насыщенные цвета и толстые линии, чтобы было видно на проекторе
     'contrast': dict(
         vbg='#ffffff', wall='#000000', region='#a8d98a', regionEdge='#2e6b16', regionText='#1b4a0c',
