@@ -1,11 +1,16 @@
-"""Собирает приложение для текущей ОС (папка dist/).
+"""Собирает программу для текущей ОС в папку dist/ (PyInstaller).
 
-Windows: ParticlesInVolume.exe, Linux: ParticlesInVolume (один файл),
-macOS: ParticlesInVolume.app. Собрать версию для другой ОС отсюда нельзя:
-это делает GitHub Actions (.github/workflows/build.yml).
+Windows: ParticlesInVolume.exe, Linux: ParticlesInVolume (один файл), macOS: ParticlesInVolume.app.
+Собрать версию для другой ОС отсюда нельзя: это делает GitHub Actions (.github/workflows/build.yml).
 
 Запуск: python build_exe.py
 Нужны: Python 3.9+, numpy, pillow, pyinstaller (pip install -r requirements.txt).
+
+КАРТА ФАЙЛА
+===========
+make_icon.py вызывается первым — рисует значок icon.ico;
+дальше PyInstaller: '--onefile' — один файл; '--add-data' — что положить внутрь (значок, папка assets/);
+'--name' — имя exe.
 """
 import os
 import subprocess
